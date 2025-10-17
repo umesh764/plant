@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Progressive Area Calculator with Clickable Steps</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f7f9fc; color:#0b2545; }
+  .controls { margin-bottom: 18px; }
+  button { padding: 9px 16px; background: #0069d9; color: white; border: none; cursor: pointer; font-size: 14px; border-radius:4px; }
+  #results { margin-top: 18px; border: 1px solid #d0e6ff; padding: 12px; border-radius: 8px; background: #ffffff; }
+  .diagram-wrap { overflow-x:auto; padding: 10px 4px; border:1px dashed #cfe6ff; border-radius:8px; background:#fcfeff; }
+  svg { height: 260px; display:block; }
+  .step-label { font-size: 12px; text-anchor: middle; fill: #062a4b; cursor: pointer; }
+  .legend { font-size: 12px; fill: #062a4b; }
+  table { width: 100%; border-collapse: collapse; margin-top:12px; min-width: 820px; }
+  th, td { border: 1px solid #e1eefc; padding: 8px; text-align: center; font-size: 13px; }
+  th { background: #0069d9; color: white; }
+  tr:nth-child(even) { background: #f5fbff; }
+  .initial { fill: #1e3a8a; stroke: #0b2545; }
+  .oval-shape { fill: #3b82f6; stroke: #0b61d1; }
+  .circle-shape { fill: #f97316; stroke: #c2410c; }
+  .note { font-size: 13px; color:#264d73; margin-top:6px; }
+  .container { max-width:1200px; margin:auto; }
+  .highlight { stroke-width: 3 !important; stroke: #ff4500 !important; cursor: pointer; }
+  .shape-group { cursor: pointer; }
+  #details { margin-top: 12px; background: #e6f0ff; padding: 12px; border-radius: 6px; font-size: 14px; color: #0b2545; }
+  @media (max-width:800px) {
+    table { min-width: 600px; }
+    svg { height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Progressive Area Calculator with Reduction %</h2>
+
+  <div class="controls">
+    <button id="calcBtn">Show Chart & Table</button>
+    <div class="note">Click on any shape in the chart below to see detailed calculation.</div>
+  </div>
+
+  <div id="results">
+    <div class="diagram-wrap" id="diagramWrap"></div>
+    <div id="tableWrap"></div>
+    <div id="details"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const diagramWrap = document.getElementById('diagramWrap');
+  const tableWrap = document.getElementById('tableWrap');
+  const detailsDiv = document.getElementById('details');
+  const btn = document.getElementById('calcBtn');
+
+  // Your updated data:
+  const steps = [
+    { step: 0, shape: 'Square', L: 150, B: 150, D: null, area: 22500, reduction: null },
+    { step: 1, shape: 'Rectangle', L: 175, B: 85, D: null, area: 14875, reduction: null },
+    { step: 2, shape: 'Oval', L: 185, B: 80, D: null, area: 11618, reduction: null },
+    { step: 3, shape: 'Circle', L: null, B: null, D: 100, area: 7850, reduction: null },
+    { step: 4, shape: 'Oval', L: 122, B: 54, D: null, area: 5171.58, reduction: null },
+    { step: 5, shape: 'Circle', L: null, B: null, D: 68, area: 3629.84, reduction: null },
+    { step: 6, shape: 'Oval', L: 80, B: 40, D: null, area: 2512, reduction: null },
+    { step: 7, shape: 'Circle', L: null, B: null, D: 47, area: 1734.065, reduction: null },
+    { step: 8, shape: 'Oval', L: 58, B: 30, D: null, area: 1365.9, reduction: null },
+    { step: 9, shape: 'Circle', L: null, B: null, D: 33, area: 854.865, reduction: null },
+    { step: 10, shape: 'Oval', L: 38, B: 22, D: null, area: 656.26, reduction: null },
+    { step: 11, shape: 'Circle', L: null, B: null, D: 26.5, area: 551.26625, reduction: null }
+  ];
+
+  // Calculate reduction % between steps
+  for(let i = 1; i < steps.length; i++) {
+    let reductionValue = steps[i-1].area - steps[i].area;
+    let reductionPercent = (reductionValue / steps[i-1].area) * 100;
+    steps[i].reduction = reductionPercent;
+  }
+
+  btn.addEventListener('click', () => {
+    drawAll();
+  });
+
+  // Draw shapes and add click handlers for detail
+  function drawAll() {
+    // Clear previous details on new draw
+    detailsDiv.innerHTML = '';
+
+    let maxRadius = 0;
+    steps.forEach(s => {
+      let r = radiusFromArea(s.area);
+      if(r > maxRadius) maxRadius = r;
+    });
+    const maxPixelRadius = 70;
+    const scale = maxRadius > 0 ? maxPixelRadius / maxRadius : 1;
+
+    const count = steps.length;
+    const perStepWidth = 140;
+    const svgWidth = Math.max(700, perStepWidth * count + 40);
+    const svgHeight = 260;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">`;
+
+    // Legend
+    svg += `<rect x="${svgWidth-240}" y="12" width="220" height="50" rx="6" fill="#f3f8ff" stroke="#d8e9ff"></rect>`;
+    svg += `<rect x="${svgWidth-225}" y="22" width="15" height="15" rx="3" ry="3" class="initial"></rect>`;
+    svg += `<text x="${svgWidth-206}" y="33" class="legend">Square/Rectangle</text>`;
+    svg += `<ellipse cx="${svgWidth-130}" cy="30" rx="8" ry="5" fill="#3b82f6" stroke="#0b61d1"></ellipse>`;
+    svg += `<text x="${svgWidth-105}" y="33" class="legend">Oval</text>`;
+    svg += `<circle cx="${svgWidth-50}" cy="28" r="8" class="circle-shape" />`;
+    svg += `<text x="${svgWidth-36}" y="33" class="legend">Circle</text>`;
+
+    // Baseline
+    svg += `<line x1="20" y1="${svgHeight - 60}" x2="${svgWidth-20}" y2="${svgHeight - 60}" stroke="#e6f0ff" stroke-width="1"/>`;
+
+    steps.forEach((r,i) => {
+      const cx = 30 + i * perStepWidth + perStepWidth/2;
+      let pr = radiusFromArea(r.area) * scale;
+      pr = Math.max(6, pr);
+
+      // Group with data-step attribute for click identification
+      svg += `<g class="shape-group" data-step="${r.step}" >`;
+
+      if(r.shape === 'Square' || r.shape === 'Rectangle') {
+        const scaleL = r.L * scale;
+        const scaleB = r.B * scale;
+
+        svg += `<rect x="${cx - scaleL/2}" y="${svgHeight - 60 - scaleB}" width="${scaleL}" height="${scaleB}" class="initial" stroke="#0b2545" stroke-opacity="0.3" fill="#1e3a8a" fill-opacity="0.5" rx="6" ry="6"></rect>`;
+      } else if(r.shape === 'Oval') {
+        const rx = (r.L / 2) * scale;
+        const ry = (r.B / 2) * scale;
+
+        svg += `<ellipse cx="${cx}" cy="${svgHeight - 60 - ry}" rx="${rx}" ry="${ry}" class="oval-shape" stroke="#0b2545" stroke-opacity="0.4"></ellipse>`;
+      } else if(r.shape === 'Circle') {
+        svg += `<circle cx="${cx}" cy="${svgHeight - 60 - pr}" r="${pr}" class="circle-shape" stroke="#c2410c" stroke-opacity="0.7"></circle>`;
+      }
+
+      svg += `<text x="${cx}" y="${svgHeight - 42}" class="step-label" data-step="${r.step}">Step ${r.step}</text>`;
+      svg += `</g>`;
+    });
+
+    svg += `</svg>`;
+    diagramWrap.innerHTML = svg;
+
+    // Add click event listeners on shapes
+    document.querySelectorAll('.shape-group').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const stepIndex = Number(el.getAttribute('data-step'));
+        highlightShape(stepIndex);
+        showDetails(stepIndex);
+      });
+    });
+
+    // Also enable clicking on text labels (optional)
+    document.querySelectorAll('.step-label').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const stepIndex = Number(el.getAttribute('data-step'));
+        highlightShape(stepIndex);
+        showDetails(stepIndex);
+      });
+    });
+
+    // Initially no highlight or details shown
+    clearHighlights();
+    detailsDiv.innerHTML = `<i>Click on a shape above to see detailed calculation.</i>`;
+
+    // Also draw full table
+    drawTable();
+  }
+
+  // Highlight selected shape
+  function highlightShape(step) {
+    clearHighlights();
+    const selectedGroup = document.querySelector(`.shape-group[data-step="${step}"]`);
+    if(selectedGroup) {
+      // Add highlight by increasing stroke width and stroke color
+      selectedGroup.querySelectorAll('rect, ellipse, circle').forEach(shp => {
+        shp.classList.add('highlight');
+      });
+    }
+  }
+
+  // Clear all highlights
+  function clearHighlights() {
+    document.querySelectorAll('.highlight').forEach(el => {
+      el.classList.remove('highlight');
+    });
+  }
+
+  // Show details of the clicked step
+  function showDetails(step) {
+    const s = steps.find(item => item.step === step);
+    if(!s) return;
+    let html = `<h3>Step ${s.step} Details</h3>`;
+    html += `<table style="width:auto; margin-top:8px; border: 1px solid #ccc;">
+      <tr><th style="padding:6px 12px; text-align:left;">Shape</th><td style="padding:6px 12px;">${s.shape}</td></tr>
+      <tr><th style="padding:6px 12px; text-align:left;">Length (L)</th><td style="padding:6px 12px;">${s.L !== null ? s.L : '-'}</td></tr>
+      <tr><th style="padding:6px 12px; text-align:left;">Breadth (B)</th><td style="padding:6px 12px;">${s.B !== null ? s.B : '-'}</td></tr>
+      <tr><th style="padding:6px 12px; text-align:left;">Diameter (D)</th><td style="padding:6px 12px;">${s.D !== null ? s.D : '-'}</td></tr>
+      <tr><th style="padding:6px 12px; text-align:left;">Area (mm²)</th><td style="padding:6px 12px;">${s.area.toFixed(2)}</td></tr>
+      <tr><th style="padding:6px 12px; text-align:left;">Reduction %</th><td style="padding:6px 12px;">${s.reduction !== null ? s.reduction.toFixed(2) + '%' : '-'}</td></tr>
+    </table>`;
+    detailsDiv.innerHTML = html;
+    detailsDiv.scrollIntoView({behavior: "smooth"});
+  }
+
+  // Draw main table with all data
+  function drawTable() {
+    let tableHTML = `<table><thead><tr>
+      <th>Step</th><th>Shape</th><th>Length (mm)</th><th>Breadth (mm)</th><th>Diameter (mm)</th><th>Area (mm²)</th><th>Reduction %</th>
+      </tr></thead><tbody>`;
+
+    steps.forEach(r => {
+      tableHTML += `<tr>
+        <td>${r.step}</td>
+        <td>${r.shape}</td>
+        <td>${r.L !== null ? r.L.toFixed(2) : '-'}</td>
+        <td>${r.B !== null ? r.B.toFixed(2) : '-'}</td>
+        <td>${r.D !== null ? r.D.toFixed(2) : '-'}</td>
+        <td>${r.area.toFixed(2)}</td>
+        <td>${r.reduction !== null ? r.reduction.toFixed(2) + '%' : '-'}</td>
+      </tr>`;
+    });
+
+    tableHTML += '</tbody></table>';
+    tableWrap.innerHTML = tableHTML;
+  }
+
+  // Helper: radius from area (for circles)
+  function radiusFromArea(area) {
+    return Math.sqrt(area / Math.PI);
+  }
+})();
+</script>
+
+</body>
+</html>

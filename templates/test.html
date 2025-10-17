@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Manual Input with Dynamic Chart - 18 Steps</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f7f9fc; color:#0b2545; }
+  .input-row { margin-bottom: 8px; }
+  label { display: inline-block; width: 80px; }
+  input { width: 70px; padding: 4px; }
+  button { padding: 8px 15px; margin-top: 10px; cursor: pointer; background: #007bff; color: white; border:none; border-radius: 4px; }
+  #diagramWrap { margin-top: 20px; overflow-x: auto; }
+  table { width: 100%; margin-top: 20px; border-collapse: collapse; font-size: 14px; }
+  th, td { border: 1px solid #ccc; padding: 6px; text-align: center; white-space: nowrap; }
+  th { background: #007bff; color: white; }
+  svg { max-width: 100%; height: 220px; }
+</style>
+</head>
+<body>
+
+<h2>Manual Input for Shapes (Steps 0 to 17)</h2>
+
+<div id="inputs"></div>
+
+<button id="updateBtn">Update Chart & Table</button>
+
+<div id="diagramWrap"></div>
+<div id="tableWrap"></div>
+
+<script>
+(() => {
+  // Define the 18 steps shapes and default dimensions
+  let steps = [
+    { step: 0, shape: 'Square', L: 150, B: 150, D: null },
+    { step: 1, shape: 'Rectangle', L: 175, B: 85, D: null },
+    { step: 2, shape: 'Oval', L: 185, B: 80, D: null },
+    { step: 3, shape: 'Circle', L: null, B: null, D: 100 },
+    { step: 4, shape: 'Oval', L: 122, B: 54, D: null },
+    { step: 5, shape: 'Circle', L: null, B: null, D: 68 },
+    { step: 6, shape: 'Oval', L: 80, B: 40, D: null },
+    { step: 7, shape: 'Circle', L: null, B: null, D: 47 },
+    { step: 8, shape: 'Oval', L: 58, B: 30, D: null },
+    { step: 9, shape: 'Circle', L: null, B: null, D: 33 },
+    { step: 10, shape: 'Oval', L: 38, B: 22, D: null },
+    { step: 11, shape: 'Circle', L: null, B: null, D: 26.5 },
+    { step: 12, shape: 'Square', L: 100, B: 100, D: null },  // Added a couple of extra shapes for demo
+    { step: 13, shape: 'Rectangle', L: 120, B: 60, D: null },
+    { step: 14, shape: 'Oval', L: 90, B: 50, D: null },
+    { step: 15, shape: 'Circle', L: null, B: null, D: 40 },
+    { step: 16, shape: 'Oval', L: 70, B: 35, D: null },
+    { step: 17, shape: 'Circle', L: null, B: null, D: 25 }
+  ];
+
+  const inputsDiv = document.getElementById('inputs');
+  const diagramWrap = document.getElementById('diagramWrap');
+  const tableWrap = document.getElementById('tableWrap');
+  const updateBtn = document.getElementById('updateBtn');
+
+  // Generate input fields dynamically
+  function generateInputs() {
+    inputsDiv.innerHTML = '';
+    steps.forEach((s, i) => {
+      const div = document.createElement('div');
+      div.className = 'input-row';
+
+      let html = `<strong>Step ${s.step} (${s.shape})</strong> &nbsp;`;
+
+      if(s.L !== null) {
+        html += `<label>L:</label><input type="number" step="0.01" value="${s.L}" data-step="${i}" data-key="L"> &nbsp;`;
+      }
+      if(s.B !== null) {
+        html += `<label>B:</label><input type="number" step="0.01" value="${s.B}" data-step="${i}" data-key="B"> &nbsp;`;
+      }
+      if(s.D !== null) {
+        html += `<label>D:</label><input type="number" step="0.01" value="${s.D}" data-step="${i}" data-key="D"> &nbsp;`;
+      }
+
+      div.innerHTML = html;
+      inputsDiv.appendChild(div);
+    });
+  }
+
+  // Update steps data from inputs
+  function updateDataFromInputs() {
+    document.querySelectorAll('#inputs input').forEach(input => {
+      const i = parseInt(input.getAttribute('data-step'));
+      const key = input.getAttribute('data-key');
+      const val = parseFloat(input.value);
+      if(!isNaN(val)) {
+        steps[i][key] = val;
+      } else {
+        steps[i][key] = null;
+      }
+    });
+  }
+
+  // Calculate area based on shape and inputs
+  function calculateArea(s) {
+    if(s.shape === 'Square' || s.shape === 'Rectangle') {
+      if(s.L !== null && s.B !== null) return s.L * s.B;
+    } else if(s.shape === 'Oval') {
+      if(s.L !== null && s.B !== null) return Math.PI * (s.L/2) * (s.B/2);
+    } else if(s.shape === 'Circle') {
+      if(s.D !== null) return Math.PI * (s.D/2) ** 2;
+    }
+    return 0;
+  }
+
+  // Calculate reductions between steps
+  function calculateReductions() {
+    for(let i=1; i<steps.length; i++) {
+      const prevArea = steps[i-1].area || 0;
+      const currArea = steps[i].area || 0;
+      const reduction = prevArea - currArea;
+      steps[i].reduction = prevArea > 0 ? (reduction/prevArea)*100 : 0;
+    }
+    steps[0].reduction = 0;
+  }
+
+  // Draw chart and table
+  function draw() {
+    // Calculate areas first
+    steps.forEach(s => s.area = calculateArea(s));
+
+    // Calculate reductions
+    calculateReductions();
+
+    // Draw simple SVG chart horizontally scrollable for many steps
+    const width = steps.length * 160 + 50;
+    let svg = `<svg width="${width}" height="220" style="background:#eef7ff;">`;
+    const baseY = 180;
+    const scale = 0.5;
+
+    steps.forEach((s, i) => {
+      const cx = 50 + i * 160;
+
+      if(s.shape === 'Square' || s.shape === 'Rectangle') {
+        const w = (s.L || 0) * scale;
+        const h = (s.B || 0) * scale;
+        svg += `<rect x="${cx - w/2}" y="${baseY - h}" width="${w}" height="${h}" fill="#1e3a8a" fill-opacity="0.7" stroke="#0b2545"></rect>`;
+      } else if(s.shape === 'Oval') {
+        const rx = (s.L/2) * scale;
+        const ry = (s.B/2) * scale;
+        svg += `<ellipse cx="${cx}" cy="${baseY - ry}" rx="${rx}" ry="${ry}" fill="#3b82f6" stroke="#0b61d1"></ellipse>`;
+      } else if(s.shape === 'Circle') {
+        const r = ((s.D || 0)/2) * scale;
+        svg += `<circle cx="${cx}" cy="${baseY - r}" r="${r}" fill="#f97316" stroke="#c2410c"></circle>`;
+      }
+
+      svg += `<text x="${cx}" y="${baseY+20}" fill="#0b2545" font-size="14" text-anchor="middle">Step ${s.step}</text>`;
+    });
+
+    svg += '</svg>';
+    diagramWrap.innerHTML = svg;
+
+    // Draw table
+    let tableHTML = `<table><thead><tr>
+      <th>Step</th><th>Shape</th><th>L (mm)</th><th>B (mm)</th><th>D (mm)</th><th>Area (mm²)</th><th>Reduction %</th>
+    </tr></thead><tbody>`;
+    steps.forEach(s => {
+      tableHTML += `<tr>
+        <td>${s.step}</td>
+        <td>${s.shape}</td>
+        <td>${s.L !== null ? s.L.toFixed(2) : '-'}</td>
+        <td>${s.B !== null ? s.B.toFixed(2) : '-'}</td>
+        <td>${s.D !== null ? s.D.toFixed(2) : '-'}</td>
+        <td>${s.area.toFixed(2)}</td>
+        <td>${s.reduction !== undefined ? s.reduction.toFixed(2) + '%' : '-'}</td>
+      </tr>`;
+    });
+    tableHTML += '</tbody></table>';
+    tableWrap.innerHTML = tableHTML;
+  }
+
+  // Initial setup
+  generateInputs();
+  draw();
+
+  // Update button listener
+  updateBtn.addEventListener('click', () => {
+    updateDataFromInputs();
+    draw();
+  });
+
+})();
+</script>
+
+</body>
+</html>

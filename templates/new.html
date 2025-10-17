@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Area & Radius Calculator — Diagram View</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f7f9fc; color:#0b2545; }
+  .controls { margin-bottom: 18px; }
+  input, textarea { width: 480px; padding: 8px; margin: 6px 0; font-size: 14px; }
+  button { padding: 9px 16px; background: #0069d9; color: white; border: none; cursor: pointer; font-size: 14px; border-radius:4px; }
+  #results { margin-top: 18px; border: 1px solid #d0e6ff; padding: 12px; border-radius: 8px; background: #ffffff; }
+  .diagram-wrap { overflow-x:auto; padding: 10px 4px; border:1px dashed #cfe6ff; border-radius:8px; background:#fcfeff; }
+  svg { height: 260px; display:block; }
+  .step-label { font-size: 12px; text-anchor: middle; fill: #062a4b; }
+  .legend { font-size: 12px; fill: #062a4b; }
+  table { width: 100%; border-collapse: collapse; margin-top:12px; min-width: 700px; }
+  th, td { border: 1px solid #e1eefc; padding: 8px; text-align: center; font-size: 13px; }
+  th { background: #0069d9; color: white; }
+  tr:nth-child(even) { background: #f5fbff; }
+  .bypass { fill: #bfc7cf; stroke: #9aa3ab; }
+  .reduction { fill: #3b82f6; stroke: #0b61d1; }
+  .initial { fill: #1e3a8a; stroke: #0b2545; }
+  .circle-shape { fill: #f97316; stroke: #c2410c; }
+  .hover-ring { fill: none; stroke: rgba(0,0,0,0.12); stroke-width: 3; }
+  .note { font-size: 13px; color:#264d73; margin-top:6px; }
+  .container { max-width:1200px; margin:auto; }
+  @media (max-width:800px) {
+    input, textarea { width: 100%; }
+    table { min-width: 600px; }
+    svg { height: 300px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Area & Radius Calculator — Diagram View (Stepwise)</h2>
+
+  <div class="controls">
+    <label><strong>Initial Rectangle Length (mm):</strong></label><br />
+    <input type="number" id="initLength" value="150" min="0.0001" /><br />
+
+    <label><strong>Initial Rectangle Breadth (mm):</strong></label><br />
+    <input type="number" id="initBreadth" value="150" min="0.0001" /><br />
+
+    <label><strong>Second Rectangle Length (mm):</strong></label><br />
+    <input type="number" id="secondLength" value="175" min="0.0001" /><br />
+
+    <label><strong>Second Rectangle Breadth (mm):</strong></label><br />
+    <input type="number" id="secondBreadth" value="85" min="0.0001" /><br />
+
+    <label><strong>Number of Steps (Oval and Circle alternate from step 1):</strong></label><br />
+    <input type="number" id="totalSteps" value="6" min="1" max="20" /><br />
+
+    <button onclick="calculate()">Calculate & Draw Diagram</button>
+    <div class="note">Diagram shows circles scaled by radius (√(Area/π)). Rectangle is only shown once at step 0. Oval and Circle alternate.</div>
+  </div>
+
+  <div id="results">
+    <div class="diagram-wrap" id="diagramWrap"></div>
+    <div id="tableWrap"></div>
+  </div>
+</div>
+
+<script>
+function calculate() {
+  const diagramWrap = document.getElementById('diagramWrap');
+  const tableWrap = document.getElementById('tableWrap');
+  diagramWrap.innerHTML = '';
+  tableWrap.innerHTML = '';
+
+  // Input values
+  const L1 = parseFloat(document.getElementById('initLength').value);
+  const B1 = parseFloat(document.getElementById('initBreadth').value);
+  const L2 = parseFloat(document.getElementById('secondLength').value);
+  const B2 = parseFloat(document.getElementById('secondBreadth').value);
+  const totalSteps = parseInt(document.getElementById('totalSteps').value);
+
+  // Calculate initial area (rectangle)
+  const areaRect = L1 * B1;
+
+  // Calculate length difference & split into two parts (half)
+  const lengthDiff = L2 - L1;
+  const lengthPart1 = lengthDiff / 2;
+  const lengthPart2 = lengthDiff - lengthPart1;
+
+  // Rows to hold steps info
+  let rows = [];
+
+  // Step 0: Initial Rectangle
+  rows.push({
+    step: 0,
+    shape: 'Rectangle',
+    L: L1,
+    B: B1,
+    D: null,
+    area: areaRect,
+    radius: Math.sqrt(areaRect / Math.PI),
+    perimeter: 2*(L1 + B1)
+  });
+
+  // For subsequent steps oval and circle alternate
+  // Oval dimensions: we add lengthPart1 to initial length, breadth from second breadth
+  // Circle diameter: derived from oval area or use fixed diameter (for demo purpose we can calculate diameter from oval's area)
+  // We'll calculate oval area and circle area stepwise
+
+  let currentLength = L1;
+  let currentBreadth = B1;
+  let ovalL, ovalB, ovalArea, circleD, circleArea;
+
+  for(let i=1; i<=totalSteps; i++) {
+    if(i % 2 !== 0) {
+      // Oval step: length increased by lengthPart1, breadth as B2 (second breadth)
+      ovalL = currentLength + lengthPart1;
+      ovalB = B2;
+      ovalArea = Math.PI / 4 * ovalL * ovalB;
+      rows.push({
+        step: i,
+        shape: 'Oval',
+        L: ovalL,
+        B: ovalB,
+        D: null,
+        area: ovalArea,
+        radius: Math.sqrt(ovalArea / Math.PI),
+        perimeter: Math.PI * (ovalL + ovalB)/2 // approx oval perimeter simplified
+      });
+      // Update currentLength for next step (increase by lengthPart1)
+      currentLength = ovalL;
+    } else {
+      // Circle step: diameter = breadth of oval (for demo), or you can set fixed diameter
+      // For more accurate diameter, you can calculate from oval area or assign fixed values
+      // Let's use diameter = breadth of oval step before it (last oval breadth)
+      circleD = ovalB; 
+      circleArea = Math.PI / 4 * circleD * circleD;
+      rows.push({
+        step: i,
+        shape: 'Circle',
+        L: null,
+        B: null,
+        D: circleD,
+        area: circleArea,
+        radius: circleD / 2,
+        perimeter: 2 * Math.PI * (circleD / 2)
+      });
+      // No length update on circle step
+    }
+  }
+
+  // Scale and draw SVG diagram
+
+  // Find max radius for scaling
+  let maxRadius = 0;
+  rows.forEach(r => {
+    if(r.radius > maxRadius) maxRadius = r.radius;
+  });
+
+  const maxPixelRadius = 70;
+  const scale = maxRadius > 0 ? maxPixelRadius / maxRadius : 1;
+
+  const count = rows.length;
+  const perStepWidth = 140;
+  const svgWidth = Math.max(700, perStepWidth * count + 40);
+  const svgHeight = 260;
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">`;
+
+  // Legend
+  svg += `<rect x="${svgWidth-220}" y="12" width="200" height="50" rx="6" fill="#f3f8ff" stroke="#d8e9ff"></rect>`;
+  svg += `<rect x="${svgWidth-205}" y="22" width="15" height="15" rx="3" ry="3" class="initial"></rect>`;
+  svg += `<text x="${svgWidth-186}" y="33" class="legend">Rectangle</text>`;
+  svg += `<ellipse cx="${svgWidth-115}" cy="30" rx="8" ry="5" fill="#3b82f6" stroke="#0b61d1"></ellipse>`;
+  svg += `<text x="${svgWidth-90}" y="33" class="legend">Oval</text>`;
+  svg += `<circle cx="${svgWidth-40}" cy="28" r="8" class="circle-shape" />`;
+  svg += `<text x="${svgWidth-26}" y="33" class="legend">Circle</text>`;
+
+  // Draw baseline
+  svg += `<line x1="20" y1="${svgHeight - 60}" x2="${svgWidth-20}" y2="${svgHeight - 60}" stroke="#e6f0ff" stroke-width="1"/>`;
+
+  for(let i=0; i<rows.length; i++) {
+    let r = rows[i];
+    const cx = 30 + i * perStepWidth + perStepWidth/2;
+    const baseY = svgHeight - 60;
+
+    let pr = r.radius * scale;
+    pr = Math.max(6, pr);
+
+    if(r.shape === 'Rectangle') {
+      // Draw rectangle scaled by length and breadth scaled similarly (instead of circle)
+      const scaleL = r.L * scale;
+      const scaleB = r.B * scale;
+
+      svg += `<g class="step-group" data-step="${r.step}" data-shape="${r.shape}" data-area="${r.area.toFixed(2)}" transform="translate(${cx}, ${baseY - scaleB/2})">`;
+      svg += `<rect x="${-scaleL/2}" y="0" width="${scaleL}" height="${scaleB}" class="initial" stroke="#0b2545" stroke-opacity="0.3" fill="#1e3a8a" fill-opacity="0.5" rx="6" ry="6"></rect>`;
+      svg += `<rect x="${-scaleL/2}" y="0" width="${scaleL}" height="${scaleB}" class="hover-ring" style="display:none;" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="3" rx="6" ry="6"></rect>`;
+      svg += `</g>`;
+    } else if(r.shape === 'Oval') {
+      // Draw oval scaled by rx and ry
+      const rx = r.L / 2 * scale;
+      const ry = r.B / 2 * scale;
+      svg += `<g class="step-group" data-step="${r.step}" data-shape="${r.shape}" data-area="${r.area.toFixed(2)}" transform="translate(${cx}, ${baseY - ry})">`;
+      svg += `<ellipse cx="0" cy="${ry+12}" rx="${rx+10}" ry="8" fill="rgba(5,20,40,0.04)"></ellipse>`;
+      svg += `<ellipse cx="0" cy="0" rx="${rx}" ry="${ry}" class="reduction" stroke="#0b2545" stroke-opacity="0.4"></ellipse>`;
+      svg += `<ellipse cx="0" cy="0" rx="${rx+6}" ry="${ry+6}" class="hover-ring" style="display:none;" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="3"></ellipse>`;
+      svg += `</g>`;
+    } else if(r.shape === 'Circle') {
+      // Draw circle scaled by radius
+      svg += `<g class="step-group" data-step="${r.step}" data-shape="${r.shape}" data-area="${r.area.toFixed(2)}" transform="translate(${cx}, ${baseY - pr})">`;
+      svg += `<ellipse cx="0" cy="${pr+12}" rx="${pr+10}" ry="8" fill="rgba(5,20,40,0.04)"></ellipse>`;
+      svg += `<circle cx="0" cy="0" r="${pr}" class="circle-shape" stroke="#c2410c" stroke-opacity="0.7"></circle>`;
+      svg += `<circle cx="0" cy="0" r="${pr+6}" class="hover-ring" style="display:none;"></circle>`;
+      svg += `</g>`;
+    }
+
+    const labelX = cx;
+    const labelY = baseY + 16;
+    svg += `<text x="${labelX}" y="${labelY}" class="step-label">Step ${r.step}</text>`;
+
+    let areaText = r.area.toFixed(2);
+    if(r.shape === 'Rectangle') areaText += ` (L:${r.L}, B:${r.B})`;
+    else if(r.shape === 'Oval') areaText += ` (L:${r.L.toFixed(1)}, B:${r.B.toFixed(1)})`;
+    else if(r.shape === 'Circle') areaText += ` (D:${r.D.toFixed(1)})`;
+
+    svg += `<text x="${labelX}" y="${labelY + 14}" class="step-label">${r.shape}: ${areaText}</text>`;
+  }
+
+  svg += `</svg>`;
+  diagramWrap.innerHTML = svg;
+
+  // Build table
+  let tableHTML = `<table><thead>
+    <tr><th>Step</th><th>Shape</th><th>Length (L)</th><th>Breadth (B)</th><th>Diameter (D)</th><th>Area (mm²)</th><th>Radius (mm)</th><th>Perimeter (mm)</th></tr>
+  </thead><tbody>`;
+
+  rows.forEach(r => {
+    tableHTML += `<tr>
+      <td>${r.step}</td>
+      <td>${r.shape}</td>
+      <td>${r.L ? r.L.toFixed(2) : '-'}</td>
+      <td>${r.B ? r.B.toFixed(2) : '-'}</td>
+      <td>${r.D ? r.D.toFixed(2) : '-'}</td>
+      <td>${r.area.toFixed(2)}</td>
+      <td>${r.radius ? r.radius.toFixed(2) : '-'}</td>
+      <td>${r.perimeter.toFixed(2)}</td>
+    </tr>`;
+  });
+
+  tableHTML += `</tbody></table>`;
+  tableWrap.innerHTML = tableHTML;
+}
+
+
+// Optional: Tooltip on hover for shapes (if you want)
+document.addEventListener('mouseover', function(e) {
+  if(e.target.closest('.step-group')) {
+    const g = e.target.closest('.step-group');
+    const step = g.getAttribute('data-step');
+    const shape = g.getAttribute('data-shape');
+    const area = g.getAttribute('data-area');
+    showFloatingTooltip(`Step ${step}: ${shape} - Area: ${area} mm²`, e.pageX, e.pageY);
+    // Show hover ring
+    g.querySelector('.hover-ring').style.display = 'block';
+  }
+});
+
+document.addEventListener('mouseout', function(e) {
+  if(e.target.closest('.step-group')) {
+    const g = e.target.closest('.step-group');
+    hideFloatingTooltip();
+    // Hide hover ring
+    g.querySelector('.hover-ring').style.display = 'none';
+  }
+});
+
+function showFloatingTooltip(text, x, y) {
+  let tooltip = document.getElementById('floating-tooltip');
+  if(!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'floating-tooltip';
+    tooltip.style.position = 'absolute';
+    tooltip.style.background = 'rgba(0,0,0,0.7)';
+    tooltip.style.color = '#fff';
+    tooltip.style.padding = '6px 10px';
+    tooltip.style.borderRadius = '5px';
+    tooltip.style.fontSize = '13px';
+    tooltip.style.pointerEvents = 'none';
+    tooltip.style.zIndex = 10000;
+    document.body.appendChild(tooltip);
+  }
+  tooltip.textContent = text;
+  tooltip.style.top = (y + 20) + 'px';
+  tooltip.style.left = (x + 10) + 'px';
+  tooltip.style.display = 'block';
+}
+
+function hideFloatingTooltip() {
+  const tooltip = document.getElementById('floating-tooltip');
+  if(tooltip) tooltip.style.display = 'none';
+}
+
+// Initial calculate call
+calculate();
+</script>
+
+</body>
+</html>

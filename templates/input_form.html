@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Structural Reduction Block-wise Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+    }
+
+    input, textarea {
+      padding: 8px;
+      margin: 5px 0;
+      width: 400px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    table {
+      width: 90%;
+      border-collapse: collapse;
+      margin-top: 30px;
+    }
+
+    th, td {
+      border: 1px solid #444;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #e6f0ff;
+    }
+
+    .block-title {
+      background-color: #d0eaff;
+      font-weight: bold;
+      text-align: left;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🧱 Structural Reduction & Tension Calculator (Block-wise)</h2>
+
+  <label><strong>Initial Area A (mm²):</strong></label><br>
+  <input type="number" id="initialA" value="14220"><br>
+
+  <label><strong>Initial Radius (mm):</strong></label><br>
+  <input type="number" id="initialRadius" value="83"><br>
+
+  <label><strong>Reductions & Changes (one per line):</strong></label><br>
+  <textarea id="reductionList" rows="6">
+36% reduction → radius 160
+17% reduction → radius 185
+33% tension → radius 100
+  </textarea><br>
+
+  <button onclick="calculate()">📊 Calculate</button>
+
+  <div id="results"></div>
+
+  <script>
+    function calculate() {
+      const A0 = parseFloat(document.getElementById("initialA").value);
+      const r0 = parseFloat(document.getElementById("initialRadius").value);
+      const lines = document.getElementById("reductionList").value.trim().split("\n");
+
+      let currentA = A0;
+      let currentR = r0;
+
+      const resultDiv = document.getElementById("results");
+      resultDiv.innerHTML = "";
+
+      // Block-wise table
+      let tableHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Action</th>
+              <th>Reduction (%)</th>
+              <th>Updated Radius (mm)</th>
+              <th>Calculated Area A (mm²)</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      // Initial row
+      tableHTML += `
+        <tr>
+          <td>1</td>
+          <td>Initial</td>
+          <td>-</td>
+          <td>${currentR.toFixed(2)}</td>
+          <td>${currentA.toFixed(2)}</td>
+        </tr>
+      `;
+
+      lines.forEach((line, index) => {
+        const stepNumber = index + 2;
+        const cleanLine = line.trim();
+        let reduction = 0;
+        let newRadius = currentR;
+
+        // Detect % reduction
+        const redMatch = cleanLine.match(/(\d+(\.\d+)?)%/);
+        if (redMatch) {
+          reduction = parseFloat(redMatch[1]);
+        }
+
+        // Detect radius update
+        const radMatch = cleanLine.match(/radius\s*(\d+)/i);
+        if (radMatch) {
+          newRadius = parseFloat(radMatch[1]);
+        }
+
+        // New area calculation
+        let newArea = currentA * (1 - (reduction / 100));
+        if (newRadius !== currentR) {
+          newArea = Math.PI * Math.pow(newRadius, 2); // A = πr²
+        }
+
+        // Add to table
+        tableHTML += `
+          <tr>
+            <td>${stepNumber}</td>
+            <td>${cleanLine}</td>
+            <td>${reduction ? reduction + "%" : "-"}</td>
+            <td>${newRadius.toFixed(2)}</td>
+            <td>${newArea.toFixed(2)}</td>
+          </tr>
+        `;
+
+        // Update current values
+        currentA = newArea;
+        currentR = newRadius;
+      });
+
+      tableHTML += "</tbody></table>";
+      resultDiv.innerHTML = tableHTML;
+    }
+  </script>
+
+</body>
+</html>
